@@ -10,6 +10,7 @@ Grafolt runs as a desktop app (Electron) or as a local web server. It has no run
 
 - **Plain-folder vaults.** A vault is any folder of `.md` files. There is no database and no proprietary format; you can open, copy, sync, or version the folder with any tool.
 - **Wikilinks.** `[[Note]]`, `[[Folder/Note]]`, and `[[Note|alias]]`. Links to notes that do not exist yet are shown muted, and clicking one creates the note.
+- **New notes.** The **+** button and `Ctrl+N` create an empty note named `Untitled` (then `Untitled 1`, `Untitled 2`, ...) and open it for editing. Name collisions are case-insensitive and an existing note is never overwritten. Clicking a link to a missing note creates it the same way, and a name such as `Projects/Ideas` creates the missing folders.
 - **Backlinks.** A panel lists every note that links to the open note, with link counts.
 - **Graph view.** A force-directed graph of all notes and links, including notes that are referenced but do not exist yet. Click a node to open it.
 - **Live updates.** Edits made outside the app (another editor, `git pull`, a sync client) are picked up automatically.
@@ -59,6 +60,22 @@ The installer is named `Grafolt-Setup-<version>.exe`. It is a per-user install (
 
 > **Unsigned builds.** Installers produced by `npm run dist` are not code-signed, so Windows SmartScreen will show an "Unknown publisher" warning. Signing requires your own code-signing certificate.
 
+## Configuration
+
+Per-vault settings live in `.grafolt/app.json` inside the vault (dot-folders are never indexed as notes). A missing or malformed file falls back to the defaults.
+
+```json
+{
+  "newFileLocation": "root",
+  "newFileFolderPath": "/"
+}
+```
+
+| Key | Values | Meaning |
+|---|---|---|
+| `newFileLocation` | `root` (default), `current`, `folder` | Where new notes go: the vault root, the folder of the open note, or `newFileFolderPath` |
+| `newFileFolderPath` | folder path, e.g. `Inbox` | Used when `newFileLocation` is `folder`; if the folder does not exist, the vault root is used |
+
 ## How it works
 
 ```
@@ -88,6 +105,7 @@ The installer is named `Grafolt-Setup-<version>.exe`. It is a per-user install (
 |---|---|---|
 | `GET` | `/api/files` | List all note paths |
 | `GET` | `/api/file?path=` | Read a note |
+| `POST` | `/api/create` | Create an empty note (`{"name"?: "...", "activePath"?: "..."}`) and return `{"path": "..."}`; omit `name` for `Untitled` |
 | `PUT` | `/api/file?path=` | Create or overwrite a note (`{"content": "..."}`) |
 | `DELETE` | `/api/file?path=` | Delete a note |
 | `GET` | `/api/backlinks?path=` | Notes that link to the given note |
@@ -135,7 +153,7 @@ $env:GRAFOLT_SMOKE=1; $env:GRAFOLT_VAULT="C:\path\to\vault"; npx electron .
 
 - No plugins, themes, or custom hotkeys.
 - Embeds (`![[Note]]`) are not rendered, and they are not counted as links.
-- Rename and move are not exposed in the UI, and links are not rewritten on rename.
+- Rename and move are not exposed in the UI, and links are not rewritten on rename. A new note therefore keeps its generated name (`Untitled`, ...) until it is renamed outside the app.
 - The markdown renderer covers the common subset listed above; it is not a full CommonMark implementation (no tables, footnotes, or math).
 - Installers are built for Windows x64 only, and the UI has not been tested on macOS or Linux.
 - The graph is laid out on the main thread, so very large vaults will be slow.

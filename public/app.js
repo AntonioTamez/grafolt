@@ -61,7 +61,11 @@ function showPreview(content) {
   }
 }
 
-async function open(path) {
+async function open(path, { edit = false } = {}) {
+  if (edit) {
+    state.editing = true;
+    $('toggle').textContent = 'Preview';
+  }
   setView('note');
   state.current = path;
   const { content } = await api(`/api/file?path=${encodeURIComponent(path)}`);
@@ -70,15 +74,20 @@ async function open(path) {
   showPreview(content);
   await refreshFiles();
   await refreshSide();
+  if (edit) $('editor').focus();
 }
 
+// The server picks a free name ("Untitled", "Untitled 1", ...) and the folder per the vault settings.
 async function createNote(name) {
-  const path = name.endsWith('.md') ? name : `${name}.md`;
-  await api(`/api/file?path=${encodeURIComponent(path)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ content: `# ${name.split('/').pop().replace(/\.md$/i, '')}\n` }),
-  });
-  await open(path);
+  try {
+    const { path } = await api('/api/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, activePath: state.current }),
+    });
+    await open(path, { edit: true });
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 function setView(view) {
@@ -104,10 +113,13 @@ $('editor').oninput = () => {
     }).then(refreshFiles).then(refreshSide);
   }, 400);
 };
-$('new').onclick = () => {
-  const name = prompt('Note name');
-  if (name) createNote(name.trim());
-};
+$('new').onclick = () => createNote();
+document.addEventListener('keydown', (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'n') {
+    ev.preventDefault();
+    createNote();
+  }
+});
 $('graph-btn').onclick = async () => {
   setView('graph');
   startGraph(await api('/api/graph'));

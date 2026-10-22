@@ -28,7 +28,11 @@ export function createServer(vault) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
-      if (url.pathname === '/api/files') return json(res, 200, [...vault.metadata.files].sort());
+      if (url.pathname === '/api/files') {
+        const key = (p) => p.replace(/\.md$/i, '');
+        const byName = (a, b) => key(a).localeCompare(key(b), undefined, { numeric: true, sensitivity: 'base' });
+        return json(res, 200, [...vault.metadata.files].sort(byName));
+      }
       if (url.pathname === '/api/graph') return json(res, 200, vault.metadata.graph());
       if (url.pathname === '/api/backlinks') {
         return json(res, 200, vault.metadata.getBacklinksForFile(url.searchParams.get('path')));
@@ -43,6 +47,10 @@ export function createServer(vault) {
         clients.add(res);
         req.on('close', () => clients.delete(res));
         return;
+      }
+      if (url.pathname === '/api/create' && req.method === 'POST') {
+        const { name, activePath } = JSON.parse((await readBody(req)) || '{}');
+        return json(res, 200, { path: await vault.createNote({ name, activePath }) });
       }
       if (url.pathname === '/api/file') {
         const rel = url.searchParams.get('path');
