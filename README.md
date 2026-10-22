@@ -59,7 +59,7 @@ PORT=4000 npm run serve       # custom port
 
 The installer is named `Grafolt-Setup-<version>.exe`. It is a per-user install (no administrator rights needed) and lets the user choose the install directory.
 
-> **Unsigned builds.** Installers produced by `npm run dist` are not code-signed, so Windows SmartScreen will show an "Unknown publisher" warning. Signing requires your own code-signing certificate.
+> **Unsigned builds.** Installers produced by `npm run dist` are not code-signed, so Windows SmartScreen will show an "Unknown publisher" warning. Signing requires your own code-signing certificate. On a PC with Smart App Control or an App Control policy, unsigned apps can be blocked outright rather than just warned about; in that case run Grafolt from source with `npm start`.
 
 ## Configuration
 
