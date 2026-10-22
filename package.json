@@ -2,6 +2,7 @@
   "name": "grafolt",
   "version": "0.1.0",
   "description": "Local-first markdown vault with wikilinks, backlinks and a graph view",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "electron .",

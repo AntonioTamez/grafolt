@@ -143,4 +143,4 @@ Issues and pull requests are welcome. Please run `npm test` before submitting a 
 
 ## License
 
-No license has been chosen yet. Until one is added, all rights are reserved by the author.
+Released under the [MIT License](LICENSE).
