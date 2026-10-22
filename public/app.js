@@ -1,7 +1,8 @@
 import { render } from '/markdown.js';
+import { mountGraph } from '/graph.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { files: [], current: null, editing: false, saveTimer: null, pendingSave: null, sim: null };
+const state = { files: [], current: null, editing: false, saveTimer: null, pendingSave: null, graph: null };
 
 const api = async (url, opts) => {
   const res = await fetch(url, opts);
@@ -108,7 +109,10 @@ function setView(view) {
   $('graph').hidden = !isGraph;
   $('preview').hidden = isGraph || state.editing;
   $('editor').hidden = isGraph || !state.editing;
-  if (!isGraph) state.sim?.stop();
+  if (!isGraph && state.graph) {
+    state.graph.stop();
+    state.graph = null;
+  }
 }
 
 $('toggle').onclick = () => {
@@ -192,68 +196,11 @@ document.addEventListener('keydown', (ev) => {
   }
 });
 $('graph-btn').onclick = async () => {
+  await flushSave(); // the graph reflects what is on disk
   setView('graph');
-  startGraph(await api('/api/graph'));
+  state.graph?.stop();
+  state.graph = mountGraph($('graph'), await api('/api/graph'), { onOpen: (id) => open(id) });
 };
-
-// Force-directed layout with tunable forces
-// (center, repel, link strength and distance), drawn on a plain canvas.
-function startGraph({ nodes, edges }) {
-  const canvas = $('graph');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
-  const cfg = { centerStrength: 0.01, repelStrength: 900, linkStrength: 0.04, linkDistance: 90, decay: 0.85 };
-  const byId = new Map(nodes.map((n, i) => [n.id, Object.assign(n, {
-    x: canvas.width / 2 + Math.cos(i) * 120, y: canvas.height / 2 + Math.sin(i) * 120, vx: 0, vy: 0,
-  })]));
-  const links = edges.map((e) => [byId.get(e.source), byId.get(e.target)]).filter(([a, b]) => a && b);
-  let alpha = 1;
-  let running = true;
-  state.sim = { stop: () => { running = false; } };
-
-  const tick = () => {
-    if (!running) return;
-    for (const a of nodes) {
-      a.vx += (canvas.width / 2 - a.x) * cfg.centerStrength;
-      a.vy += (canvas.height / 2 - a.y) * cfg.centerStrength;
-      for (const b of nodes) {
-        if (a === b) continue;
-        const dx = a.x - b.x; const dy = a.y - b.y;
-        const d2 = Math.max(dx * dx + dy * dy, 25);
-        a.vx += (dx / d2) * cfg.repelStrength * alpha;
-        a.vy += (dy / d2) * cfg.repelStrength * alpha;
-      }
-    }
-    for (const [a, b] of links) {
-      const dx = b.x - a.x; const dy = b.y - a.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const f = (d - cfg.linkDistance) * cfg.linkStrength * alpha;
-      a.vx += (dx / d) * f; a.vy += (dy / d) * f;
-      b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
-    }
-    for (const n of nodes) { n.x += n.vx; n.y += n.vy; n.vx *= cfg.decay; n.vy *= cfg.decay; }
-    alpha = Math.max(alpha * 0.99, 0.05);
-
-    const css = getComputedStyle(document.body);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = css.getPropertyValue('--border');
-    for (const [a, b] of links) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
-    for (const n of nodes) {
-      ctx.fillStyle = n.exists ? css.getPropertyValue('--accent') : css.getPropertyValue('--muted');
-      ctx.beginPath(); ctx.arc(n.x, n.y, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = css.getPropertyValue('--text');
-      ctx.fillText(n.label, n.x + 8, n.y + 4);
-    }
-    requestAnimationFrame(tick);
-  };
-  canvas.onclick = (ev) => {
-    const r = canvas.getBoundingClientRect();
-    const hit = nodes.find((n) => n.exists && Math.hypot(n.x - (ev.clientX - r.left), n.y - (ev.clientY - r.top)) < 10);
-    if (hit) open(hit.id);
-  };
-  tick();
-}
 
 // Live updates: edits made outside the app (another editor, git pull) show up here.
 new EventSource('/api/events').addEventListener('external', async (ev) => {

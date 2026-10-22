@@ -13,7 +13,7 @@ Grafolt runs as a desktop app (Electron) or as a local web server. It has no run
 - **New notes.** The **+** button and `Ctrl+N` create an empty note named `Untitled` (then `Untitled 1`, `Untitled 2`, ...) and open it for editing. Name collisions are case-insensitive and an existing note is never overwritten. Clicking a link to a missing note creates it the same way, and a name such as `Projects/Ideas` creates the missing folders.
 - **Rename and move.** Click **Rename**, double-click the title, or press `F2`. A name with folders (`Archive/2026/Note`) moves the note and creates the folders. Grafolt asks before rewriting links: **Update links**, **Don't update**, or **Cancel**. Updated references keep their alias, `#heading` and embed marker, and links inside code are never touched.
 - **Backlinks.** A panel lists every note that links to the open note, with link counts.
-- **Graph view.** A force-directed graph of all notes and links, including notes that are referenced but do not exist yet. Click a node to open it.
+- **Graph view.** A force-directed graph of all notes and links, including notes that are referenced but do not exist yet. Click a node to open it, drag a node to move it (it stays pinned while held and the layout reacts), drag the background to pan, and use the mouse wheel to zoom around the cursor. Hovering a node highlights its neighbours, labels fade in as you zoom, and the canvas is rendered at the display's device pixel ratio so it stays sharp on scaled screens.
 - **Live updates.** Edits made outside the app (another editor, `git pull`, a sync client) are picked up automatically.
 - **Markdown rendering.** Headings, emphasis, highlights, inline code, fenced code blocks, ordered and unordered lists, task lists, blockquotes, callouts (`> [!NOTE]`), tags (`#tag`), horizontal rules, and YAML frontmatter.
 - **Private by design.** The server binds to `127.0.0.1` only, and the desktop window runs with `contextIsolation` and `sandbox` enabled and Node integration disabled.
@@ -129,6 +129,7 @@ src/vault.js         Filesystem access, indexing, watching
 src/metadata.js      Link parsing and resolution, backlinks, graph data
 src/markdown.js      Markdown renderer
 public/              Browser UI
+public/graph.js      Graph view: force simulation, camera, pointer interaction
 test/                Automated tests
 vault/               Sample vault
 ```
@@ -139,7 +140,7 @@ vault/               Sample vault
 npm test
 ```
 
-The suite covers link parsing (including code, embeds and exact offsets), link resolution (resolved, unresolved, case-insensitive), backlink updates on write and delete, note creation and naming, renaming with link rewriting, path-traversal rejection, the filesystem watcher, markdown rendering, and the HTTP API.
+The suite covers link parsing (including code, embeds and exact offsets), link resolution (resolved, unresolved, case-insensitive), backlink updates on write and delete, note creation and naming, renaming with link rewriting, path-traversal rejection, the filesystem watcher, markdown rendering, the graph's force simulation, camera (zoom and pan) and click-versus-drag logic, and the HTTP API.
 
 The Electron app also has a smoke mode that reports what the renderer drew, then exits:
 
