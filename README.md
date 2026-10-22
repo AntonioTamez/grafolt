@@ -51,6 +51,7 @@ PORT=4000 npm run serve       # custom port
 | `npm start` | Launch the Electron desktop app |
 | `npm run serve` | Run the web server without Electron |
 | `npm test` | Run the test suite (Node's built-in test runner) |
+| `npm run icons` | Regenerate `build/icon.png` and `build/icon.ico` from `build/icon.svg` |
 | `npm run package` | Build a portable Windows x64 folder in `dist/` with `@electron/packager` |
 | `npm run dist` | Build a Windows x64 NSIS installer in `release/` with `electron-builder` |
 
@@ -99,6 +100,8 @@ The API has no authentication because it is only reachable from the local machin
 ## Project structure
 
 ```
+build/               Application icon (SVG source, generated PNG and ICO)
+scripts/             Build helpers (icon generator)
 electron/main.js     Desktop shell: window, vault picker, config
 server.js            HTTP API and static file server
 src/vault.js         Filesystem access, indexing, watching

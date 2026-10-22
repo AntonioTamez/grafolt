@@ -56,6 +56,7 @@ function createWindow(origin, root) {
     width: 1280,
     height: 800,
     title: `Grafolt - ${path.basename(root)}`,
+    icon: path.join(import.meta.dirname, '..', 'build', 'icon.png'),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   // The UI only talks to its own loopback origin; anything else opens in the system browser.

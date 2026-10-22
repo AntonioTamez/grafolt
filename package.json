@@ -8,8 +8,9 @@
     "start": "electron .",
     "serve": "node server.js",
     "test": "node --test \"test/*.test.js\"",
-    "package": "electron-packager . Grafolt --platform=win32 --arch=x64 --out=dist --overwrite --prune=true --ignore=\"^/(dist|test|vault)\"",
-    "dist": "electron-builder --win nsis --x64"
+    "package": "electron-packager . Grafolt --platform=win32 --arch=x64 --icon=build/icon.ico --out=dist --overwrite --prune=true --ignore=\"^/(dist|test|vault)\"",
+    "dist": "electron-builder --win nsis --x64",
+    "icons": "electron scripts/build-icons.cjs"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
@@ -28,6 +29,7 @@
       "electron/**",
       "src/**",
       "public/**",
+      "build/icon.png",
       "server.js",
       "package.json"
     ],
@@ -39,7 +41,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
