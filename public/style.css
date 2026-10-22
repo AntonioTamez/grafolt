@@ -27,3 +27,8 @@ ul { list-style: none; margin: 0; padding: 4px 0; }
 #preview .callout { margin: 12px 0; padding: 10px 14px; border-radius: 6px; background: var(--panel); border-left: 3px solid var(--accent); }
 #preview .callout-title { font-weight: 600; margin-bottom: 4px; }
 #preview mark { background: #e0b82e55; color: inherit; }
+#title { cursor: text; }
+#title-input { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; padding: 2px 8px; font: inherit; }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; max-width: 420px; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog .actions { display: flex; gap: 8px; justify-content: flex-end; }

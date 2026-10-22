@@ -3,9 +3,16 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 
 export const WIKILINK = /(!?)\[\[([^\]|#^]*)(#[^\]|]*)?(?:\|([^\]]*))?\]\]/g;
 
+// Code spans are literal: only the text between them gets emphasis, links and tags.
 function inline(text, resolve) {
+  return text
+    .split(/(`[^`\n]+`)/)
+    .map((part, i) => (i % 2 ? `<code>${esc(part.slice(1, -1))}</code>` : inlineText(part, resolve)))
+    .join('');
+}
+
+function inlineText(text, resolve) {
   let out = esc(text);
-  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
   out = out.replace(/==([^=]+)==/g, '<mark>$1</mark>');

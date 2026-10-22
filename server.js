@@ -52,6 +52,13 @@ export function createServer(vault) {
         const { name, activePath } = JSON.parse((await readBody(req)) || '{}');
         return json(res, 200, { path: await vault.createNote({ name, activePath }) });
       }
+      if (url.pathname === '/api/rename-impact') {
+        return json(res, 200, vault.linksAffectedBy(url.searchParams.get('path')));
+      }
+      if (url.pathname === '/api/rename' && req.method === 'POST') {
+        const { from, to, updateLinks } = JSON.parse((await readBody(req)) || '{}');
+        return json(res, 200, await vault.renameNote(from, to, { updateLinks }));
+      }
       if (url.pathname === '/api/file') {
         const rel = url.searchParams.get('path');
         if (req.method === 'GET') return json(res, 200, { path: rel, content: await vault.read(rel) });

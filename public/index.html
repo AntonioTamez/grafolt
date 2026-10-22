@@ -13,7 +13,12 @@
     <ul id="files"></ul>
   </aside>
   <main id="main">
-    <div class="bar"><span id="title">No note open</span><button id="toggle">Edit</button></div>
+    <div class="bar">
+      <span id="title" title="Double-click or press F2 to rename">No note open</span>
+      <input id="title-input" hidden spellcheck="false" aria-label="Note name">
+      <button id="rename" title="Rename (F2)">Rename</button>
+      <button id="toggle">Edit</button>
+    </div>
     <textarea id="editor" hidden spellcheck="false"></textarea>
     <article id="preview"></article>
     <canvas id="graph" hidden></canvas>
@@ -24,6 +29,16 @@
     <div class="bar"><strong>Unlinked targets</strong></div>
     <ul id="outgoing"></ul>
   </aside>
+  <dialog id="confirm">
+    <form method="dialog">
+      <p id="confirm-text"></p>
+      <div class="actions">
+        <button value="update">Update links</button>
+        <button value="skip">Don't update</button>
+        <button value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

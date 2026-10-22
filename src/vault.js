@@ -1,7 +1,7 @@
 import { promises as fs, watch } from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { MetadataCache, parse } from './metadata.js';
+import { MetadataCache, parse, findRefs } from './metadata.js';
 
 const toPosix = (p) => p.split(path.sep).join('/');
 
@@ -27,6 +27,22 @@ export function sanitizeNoteName(name) {
   return clean;
 }
 
+/**
+ * Rewrite each reference in place using its exact offsets. A path-style link keeps a path (and a
+ * trailing .md); a bare-name link gets the shortest text that still identifies the note.
+ * Alias, #subpath and the embed marker are preserved.
+ */
+function applyRefEdits(content, refs, target, shortest) {
+  const bare = target.replace(/\.md$/i, '');
+  let out = content;
+  for (const ref of [...refs].sort((a, b) => b.start - a.start)) {
+    const link = `${ref.link.includes('/') ? bare : shortest}${/\.md$/i.test(ref.link) ? '.md' : ''}`;
+    const alias = ref.alias === undefined ? '' : `|${ref.alias}`;
+    out = `${out.slice(0, ref.start)}${ref.embed ? '!' : ''}[[${link}${ref.sub}${alias}]]${out.slice(ref.end)}`;
+  }
+  return out;
+}
+
 /** A vault is just a folder: the markdown files on disk are the only source of truth. */
 export class Vault extends EventEmitter {
   constructor(root) {
@@ -35,6 +51,81 @@ export class Vault extends EventEmitter {
     this.metadata = new MetadataCache();
     this.timers = new Map();
     this.reserved = new Set(); // paths chosen by in-flight createNote calls
+    this.queue = Promise.resolve(); // serialises operations that rewrite several files
+  }
+
+  serialize(task) {
+    const run = this.queue.then(task);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
+  async exists(rel) {
+    try {
+      await fs.access(this.abs(rel));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** How many links (and in how many notes) would need rewriting if this note were renamed. */
+  linksAffectedBy(rel) {
+    const refs = this.metadata.referencesTo(rel);
+    return { links: refs.reduce((sum, r) => sum + r.count, 0), files: refs.length };
+  }
+
+  /** Rename or move a note and, unless told otherwise, rewrite every link and embed that pointed to it. */
+  renameNote(from, to, { updateLinks = true } = {}) {
+    return this.serialize(() => this.doRename(from, to, updateLinks !== false));
+  }
+
+  async doRename(from, to, updateLinks) {
+    if (!this.metadata.files.has(from)) throw new Error('Note not found');
+    const clean = sanitizeNoteName(to);
+    if (!clean) throw new Error('Note name cannot be empty');
+    const target = `${clean}.md`;
+    if (target === from) return { path: from, updated: 0, failed: [] };
+    const sameFile = target.toLowerCase() === from.toLowerCase(); // case-only renames are legitimate
+    const known = [...this.metadata.files].some((p) => p !== from && p.toLowerCase() === target.toLowerCase());
+    if (known || (!sameFile && (await this.exists(target)))) throw new Error('A note with that name already exists');
+
+    // Plan the edits against the pre-rename state, from fresh disk content (never stale offsets).
+    const plan = new Map();
+    if (updateLinks) {
+      const sources = new Set([from, ...this.metadata.referencesTo(from).map((r) => r.source)]);
+      for (const source of sources) {
+        const content = await this.read(source);
+        const refs = findRefs(content).filter((ref) => this.metadata.getFirstLinkpathDest(ref.link, source) === from);
+        if (refs.length) plan.set(source, { content, refs });
+      }
+    }
+
+    const full = this.abs(target);
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.rename(this.abs(from), full);
+    this.metadata.move(from, target);
+
+    const failed = [];
+    let updated = 0;
+    const shortest = this.metadata.fileToLinktext(target);
+    for (const [source, { content, refs }] of plan) {
+      const where = source === from ? target : source;
+      try {
+        const next = applyRefEdits(content, refs, target, shortest);
+        if (next === content) continue;
+        // A note edited since it was planned would get corrupt offsets: skip it and report it.
+        if ((await fs.readFile(this.abs(where), 'utf8')) !== content) throw new Error('changed on disk');
+        await fs.writeFile(this.abs(where), next, 'utf8');
+        this.metadata.cache.set(where, parse(next));
+        updated += 1;
+      } catch {
+        failed.push(where);
+      }
+    }
+    this.metadata.resolveAll();
+    this.metadata.emit('changed', target);
+    return { path: target, updated, failed };
   }
 
   /** Per-vault settings from .grafolt/app.json; anything missing or malformed falls back to defaults. */

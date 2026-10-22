@@ -1,17 +1,52 @@
 import { EventEmitter } from 'node:events';
 import { WIKILINK, stripFrontmatter } from './markdown.js';
 
+/**
+ * Blank out fenced code (and optionally inline code) with spaces of the same length, so offsets
+ * survive: wikilinks, tags and headings inside code are literal text, not references.
+ */
+function maskCode(text, { inline = true } = {}) {
+  let fence = null;
+  return text.split('\n').map((line) => {
+    const blank = ' '.repeat(line.length);
+    if (fence) {
+      const close = line.match(/^\s*(```+|~~~+)\s*$/);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = null;
+      return blank;
+    }
+    const open = line.match(/^\s*(```+|~~~+)/);
+    if (open) {
+      fence = open[1];
+      return blank;
+    }
+    return inline ? line.replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length)) : line;
+  }).join('\n');
+}
+
+/** Every wikilink and embed outside code, with exact offsets in the full content (frontmatter included). */
+export function findRefs(content) {
+  const body = stripFrontmatter(content);
+  const offset = content.length - body.length;
+  const refs = [];
+  for (const m of maskCode(body).matchAll(WIKILINK)) {
+    const link = m[2].trim();
+    if (!link) continue;
+    const start = offset + m.index;
+    const end = start + m[0].length;
+    refs.push({ embed: m[1] === '!', link, sub: m[3] || '', alias: m[4], raw: content.slice(start, end), start, end });
+  }
+  return refs;
+}
+
 export function parse(content) {
   const body = stripFrontmatter(content);
-  const links = [];
-  for (const m of body.matchAll(WIKILINK)) {
-    if (m[1] === '!') continue; // embeds are not links
-    const target = m[2].trim();
-    if (target) links.push({ link: target, displayText: m[4] || target });
-  }
-  const tags = [...new Set([...body.matchAll(/(?:^|\s)#([\p{L}\d_/-]+)/gu)].map((m) => m[1]))];
-  const headings = [...body.matchAll(/^(#{1,6})\s+(.*)$/gm)].map((m) => ({ level: m[1].length, heading: m[2].trim() }));
-  return { links, tags, headings };
+  const refs = findRefs(content);
+  const links = refs.filter((r) => !r.embed).map((r) => ({ link: r.link, displayText: r.alias || r.link }));
+  const embeds = refs.filter((r) => r.embed).map((r) => ({ link: r.link }));
+  const tags = [...new Set([...maskCode(body).matchAll(/(?:^|\s)#([\p{L}\d_/-]+)/gu)].map((m) => m[1]))];
+  const headings = [...maskCode(body, { inline: false }).matchAll(/^(#{1,6})\s+(.*)$/gm)]
+    .map((m) => ({ level: m[1].length, heading: m[2].trim() }));
+  return { links, embeds, tags, headings };
 }
 
 const basename = (p) => p.split('/').pop().replace(/\.md$/i, '');
@@ -68,6 +103,32 @@ export class MetadataCache extends EventEmitter {
       this.unresolvedLinks[path] = unresolved;
     }
     this.emit('resolved');
+  }
+
+  /** Notes whose links or embeds currently resolve to `path`, with how many each has. */
+  referencesTo(path) {
+    const out = [];
+    for (const [source, meta] of this.cache) {
+      const count = [...meta.links, ...meta.embeds].filter((r) => this.getFirstLinkpathDest(r.link, source) === path).length;
+      if (count) out.push({ source, count });
+    }
+    return out;
+  }
+
+  /** "Shortest" link text for a note: its basename if no other note shares it, else its full path. */
+  fileToLinktext(path) {
+    const bare = path.replace(/\.md$/i, '');
+    const base = bare.split('/').pop();
+    const sameName = [...this.files].filter((p) => basename(p).toLowerCase() === base.toLowerCase());
+    return sameName.length === 1 ? base : bare;
+  }
+
+  /** Move a cache entry to a new path without resolving links; the caller resolves once when done. */
+  move(from, to) {
+    this.files.delete(from);
+    this.files.add(to);
+    this.cache.set(to, this.cache.get(from));
+    this.cache.delete(from);
   }
 
   getBacklinksForFile(path) {

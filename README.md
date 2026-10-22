@@ -11,6 +11,7 @@ Grafolt runs as a desktop app (Electron) or as a local web server. It has no run
 - **Plain-folder vaults.** A vault is any folder of `.md` files. There is no database and no proprietary format; you can open, copy, sync, or version the folder with any tool.
 - **Wikilinks.** `[[Note]]`, `[[Folder/Note]]`, and `[[Note|alias]]`. Links to notes that do not exist yet are shown muted, and clicking one creates the note.
 - **New notes.** The **+** button and `Ctrl+N` create an empty note named `Untitled` (then `Untitled 1`, `Untitled 2`, ...) and open it for editing. Name collisions are case-insensitive and an existing note is never overwritten. Clicking a link to a missing note creates it the same way, and a name such as `Projects/Ideas` creates the missing folders.
+- **Rename and move.** Click **Rename**, double-click the title, or press `F2`. A name with folders (`Archive/2026/Note`) moves the note and creates the folders. Grafolt asks before rewriting links: **Update links**, **Don't update**, or **Cancel**. Updated references keep their alias, `#heading` and embed marker, and links inside code are never touched.
 - **Backlinks.** A panel lists every note that links to the open note, with link counts.
 - **Graph view.** A force-directed graph of all notes and links, including notes that are referenced but do not exist yet. Click a node to open it.
 - **Live updates.** Edits made outside the app (another editor, `git pull`, a sync client) are picked up automatically.
@@ -106,6 +107,8 @@ Per-vault settings live in `.grafolt/app.json` inside the vault (dot-folders are
 | `GET` | `/api/files` | List all note paths |
 | `GET` | `/api/file?path=` | Read a note |
 | `POST` | `/api/create` | Create an empty note (`{"name"?: "...", "activePath"?: "..."}`) and return `{"path": "..."}`; omit `name` for `Untitled` |
+| `GET` | `/api/rename-impact?path=` | How many links and notes a rename would rewrite (`{"links": 2, "files": 1}`) |
+| `POST` | `/api/rename` | Rename or move a note (`{"from": "A.md", "to": "Folder/B", "updateLinks": true}`); returns `{"path", "updated", "failed"}` |
 | `PUT` | `/api/file?path=` | Create or overwrite a note (`{"content": "..."}`) |
 | `DELETE` | `/api/file?path=` | Delete a note |
 | `GET` | `/api/backlinks?path=` | Notes that link to the given note |
@@ -136,7 +139,7 @@ vault/               Sample vault
 npm test
 ```
 
-The suite covers link parsing, link resolution (resolved, unresolved, case-insensitive), backlink updates on write and delete, path-traversal rejection, the filesystem watcher, markdown rendering, and the HTTP API.
+The suite covers link parsing (including code, embeds and exact offsets), link resolution (resolved, unresolved, case-insensitive), backlink updates on write and delete, note creation and naming, renaming with link rewriting, path-traversal rejection, the filesystem watcher, markdown rendering, and the HTTP API.
 
 The Electron app also has a smoke mode that reports what the renderer drew, then exits:
 
@@ -152,8 +155,9 @@ $env:GRAFOLT_SMOKE=1; $env:GRAFOLT_VAULT="C:\path\to\vault"; npx electron .
 ## Current limitations
 
 - No plugins, themes, or custom hotkeys.
-- Embeds (`![[Note]]`) are not rendered, and they are not counted as links.
-- Rename and move are not exposed in the UI, and links are not rewritten on rename. A new note therefore keeps its generated name (`Untitled`, ...) until it is renamed outside the app.
+- Embeds (`![[Note]]`) are not rendered and are not counted as links, but they are updated on rename.
+- Links inside YAML frontmatter are not parsed, so they are not rewritten on rename. Moving a note is done by typing a path in the rename box; there is no drag and drop.
+- A rename keeps a link's style: `[[Folder/Note]]` stays a path link and `[[Note]]` stays a short link (a path only when the name is no longer unique). If a note is edited by something else while a rename is rewriting links, that note is skipped and reported instead of risking corrupt text.
 - The markdown renderer covers the common subset listed above; it is not a full CommonMark implementation (no tables, footnotes, or math).
 - Installers are built for Windows x64 only, and the UI has not been tested on macOS or Linux.
 - The graph is laid out on the main thread, so very large vaults will be slow.

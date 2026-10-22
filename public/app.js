@@ -1,7 +1,7 @@
 import { render } from '/markdown.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { files: [], current: null, editing: false, saveTimer: null, sim: null };
+const state = { files: [], current: null, editing: false, saveTimer: null, pendingSave: null, sim: null };
 
 const api = async (url, opts) => {
   const res = await fetch(url, opts);
@@ -61,7 +61,20 @@ function showPreview(content) {
   }
 }
 
+// A save always targets the path its text was typed into, and runs before any navigation or rename.
+async function flushSave() {
+  clearTimeout(state.saveTimer);
+  const pending = state.pendingSave;
+  if (!pending) return;
+  state.pendingSave = null;
+  await api(`/api/file?path=${encodeURIComponent(pending.path)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content: pending.content }),
+  });
+}
+
 async function open(path, { edit = false } = {}) {
+  await flushSave();
   if (edit) {
     state.editing = true;
     $('toggle').textContent = 'Preview';
@@ -105,19 +118,77 @@ $('toggle').onclick = () => {
   setView('note');
 };
 $('editor').oninput = () => {
+  state.pendingSave = { path: state.current, content: $('editor').value };
   clearTimeout(state.saveTimer);
   state.saveTimer = setTimeout(() => {
-    api(`/api/file?path=${encodeURIComponent(state.current)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content: $('editor').value }),
-    }).then(refreshFiles).then(refreshSide);
+    flushSave().then(refreshFiles).then(refreshSide).catch((err) => alert(err.message));
   }, 400);
 };
 $('new').onclick = () => createNote();
+
+// Rename (and move, when the name has folders). Links are only rewritten after the user agrees.
+function startRename() {
+  if (!state.current) return;
+  const input = $('title-input');
+  input.value = state.current.replace(/\.md$/i, '');
+  $('title').hidden = true;
+  input.hidden = false;
+  input.focus();
+  input.select();
+}
+
+function endRename() {
+  $('title-input').hidden = true;
+  $('title').hidden = false;
+}
+
+function askUpdateLinks({ links, files }) {
+  const dialog = $('confirm');
+  $('confirm-text').textContent = `${links} link${links === 1 ? '' : 's'} in ${files} note${files === 1 ? '' : 's'} point to this note. Update them?`;
+  dialog.returnValue = '';
+  return new Promise((resolve) => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue || 'cancel'), { once: true });
+    dialog.showModal();
+  });
+}
+
+async function commitRename() {
+  const to = $('title-input').value.trim();
+  endRename();
+  const from = state.current;
+  if (!from || !to || to === from.replace(/\.md$/i, '')) return;
+  try {
+    await flushSave();
+    const impact = await api(`/api/rename-impact?path=${encodeURIComponent(from)}`);
+    let updateLinks = true;
+    if (impact.links > 0) {
+      const choice = await askUpdateLinks(impact);
+      if (choice === 'cancel') return;
+      updateLinks = choice === 'update';
+    }
+    const result = await api('/api/rename', { method: 'POST', body: JSON.stringify({ from, to, updateLinks }) });
+    await open(result.path);
+    if (result.failed.length) alert(`These notes changed while renaming and were not updated:\n${result.failed.join('\n')}`);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+$('rename').onclick = startRename;
+$('title').ondblclick = startRename;
+$('title-input').onblur = endRename;
+$('title-input').onkeydown = (ev) => {
+  if (ev.key === 'Enter') commitRename();
+  if (ev.key === 'Escape') endRename();
+};
 document.addEventListener('keydown', (ev) => {
   if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'n') {
     ev.preventDefault();
     createNote();
+  }
+  if (ev.key === 'F2') {
+    ev.preventDefault();
+    startRename();
   }
 });
 $('graph-btn').onclick = async () => {
