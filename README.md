@@ -155,6 +155,8 @@ $env:GRAFOLT_SMOKE=1; $env:GRAFOLT_VAULT="C:\path\to\vault"; npx electron .
 
 ## Current limitations
 
+A fuller list of features that comparable note apps offer and Grafolt does not yet is in [MISSING_FEATURES.md](MISSING_FEATURES.md).
+
 - No plugins, themes, or custom hotkeys.
 - Embeds (`![[Note]]`) are not rendered and are not counted as links, but they are updated on rename.
 - Links inside YAML frontmatter are not parsed, so they are not rewritten on rename. Moving a note is done by typing a path in the rename box; there is no drag and drop.
