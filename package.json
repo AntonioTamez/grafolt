@@ -1,0 +1,50 @@
+{
+  "name": "grafolt",
+  "version": "0.1.0",
+  "description": "Local-first markdown vault with wikilinks, backlinks and a graph view",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "serve": "node server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "package": "electron-packager . Grafolt --platform=win32 --arch=x64 --out=dist --overwrite --prune=true --ignore=\"^/(dist|test|vault)\"",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "main": "electron/main.js",
+  "productName": "Grafolt",
+  "build": {
+    "appId": "dev.grafolt.app",
+    "productName": "Grafolt",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "src/**",
+      "public/**",
+      "server.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "Grafolt-Setup-${version}.exe"
+    }
+  }
+}

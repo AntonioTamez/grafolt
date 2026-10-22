@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+
+# Build output (installers and packaged apps are published as GitHub releases, not committed)
+dist/
+release/
+out/
+*.exe
+*.blockmap
+*.asar
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Code signing material
+*.cer
+*.crt
+*.snk
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Package manager caches and artifacts
+.npm/
+.eslintcache
+*.tgz
+
+# Per-user vault configuration (the sample vault under vault/ is tracked, its config is not)
+.grafolt/
+vault/.grafolt/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# AI assistant local state
+.claude/
+.engram/
+.codegraph/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/

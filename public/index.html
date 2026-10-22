@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:">
+  <title>Grafolt</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="bar"><strong>Grafolt</strong><button id="new" title="New note">+</button><button id="graph-btn" title="Graph view">Graph</button></div>
+    <ul id="files"></ul>
+  </aside>
+  <main id="main">
+    <div class="bar"><span id="title">No note open</span><button id="toggle">Edit</button></div>
+    <textarea id="editor" hidden spellcheck="false"></textarea>
+    <article id="preview"></article>
+    <canvas id="graph" hidden></canvas>
+  </main>
+  <aside id="right">
+    <div class="bar"><strong>Backlinks</strong></div>
+    <ul id="backlinks"></ul>
+    <div class="bar"><strong>Unlinked targets</strong></div>
+    <ul id="outgoing"></ul>
+  </aside>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
